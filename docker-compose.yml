@@ -1,0 +1,63 @@
+services:
+  mcp:
+    build:
+      context: ./docker
+      dockerfile: mcp.Dockerfile
+    environment:
+      - IS_REMOTE_MCP=${IS_REMOTE_MCP}
+      - MYSQL_HOST=${MYSQL_HOST}
+      - MYSQL_PORT=${MYSQL_PORT}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASS=${MYSQL_PASS}
+      - MYSQL_DB=${MYSQL_DB}
+      - ALLOW_INSERT_OPERATION=${ALLOW_INSERT_OPERATION}
+      - ALLOW_UPDATE_OPERATION=${ALLOW_UPDATE_OPERATION}
+      - ALLOW_DELETE_OPERATION=${ALLOW_DELETE_OPERATION}
+      - REMOTE_SECRET_KEY=${REMOTE_SECRET_KEY}
+      - PORT=${MCP_PORT}
+    restart: unless-stopped
+    networks: [internal]
+
+  authproxy:
+    build:
+      context: ./docker
+      dockerfile: authproxy.Dockerfile
+    command: >
+      --external-url ${EXTERNAL_URL}
+      --listen 0.0.0.0:${AUTHPROXY_PORT}
+      --no-auto-tls
+      --data-path /data
+      --password ${AUTH_PASSWORD}
+      --proxy-bearer-token ${REMOTE_SECRET_KEY}
+      --trusted-proxies ${TRUSTED_PROXIES}
+      -- http://mcp:${MCP_PORT}
+    volumes:
+      - authproxy-data:/data
+    depends_on:
+      - mcp
+    restart: unless-stopped
+    networks: [internal]
+
+  edge:
+    image: caddy:2-alpine
+    ports:
+      - "443:443"
+      - "80:80" # only needed for ACME HTTP-01 in domain mode; harmless in ip mode
+    volumes:
+      - ./edge/rendered/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./edge/rendered/login.html:/srv/pages/login.html:ro
+      - ./edge/rendered/authorize.html:/srv/pages/authorize.html:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - authproxy
+    restart: unless-stopped
+    networks: [internal]
+
+networks:
+  internal:
+
+volumes:
+  authproxy-data:
+  caddy-data:
+  caddy-config:

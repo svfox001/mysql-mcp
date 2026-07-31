@@ -1,0 +1,31 @@
+{{SITE_ADDRESS}} {
+{{TLS_DIRECTIVE}}
+
+	# Branded pages: only intercept the GET (page-render) requests for the
+	# login and authorize screens. Every POST (the actual auth logic) and
+	# everything else falls through to authproxy untouched, so the OAuth
+	# flow itself never depends on anything this edge layer renders.
+	@loginPage {
+		method GET
+		path /.auth/login
+	}
+	handle @loginPage {
+		root * /srv/pages
+		rewrite * /login.html
+		file_server
+	}
+
+	@authorizePage {
+		method GET
+		path /.idp/auth/*
+	}
+	handle @authorizePage {
+		root * /srv/pages
+		rewrite * /authorize.html
+		file_server
+	}
+
+	handle {
+		reverse_proxy authproxy:8080
+	}
+}

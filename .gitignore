@@ -1,0 +1,6 @@
+.env
+edge/rendered/
+grants.generated.sql
+.env.generated
+__pycache__/
+*.pyc
